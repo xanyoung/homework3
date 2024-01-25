@@ -1,0 +1,58 @@
+---
+- hosts: myhosts
+  become: yes
+  vars_files:
+    - vars/default.yml
+  tasks:
+    - name: Install Apache
+      apt: name=apache2 update_cache=yes state=latest
+
+    - name: Create document root
+      file:
+        path: '/var/www/{{ var_domain }}/html'
+        state: directory
+        owner: 'www-data'
+        group: 'www-data'
+        mode: '0550'
+
+    - name: Create cgi root
+      file:
+        path: '/var/www/{{ var_domain }}/cgi-bin'
+        state: directory
+        owner: 'www-data'
+        group: 'www-data'
+        mode: '0550'
+
+    - name: Copy cgi script
+      template:
+        src: 'files/currentweather'
+        dest: '/var/www/{{ var_domain }}/cgi-bin/currentweather'
+        owner: 'www-data'
+        group: 'www-data'
+        mode: '0550'
+
+    - name: Copy page
+      template:
+        src: 'files/default.html.j2'
+        dest: '/var/www/{{ var_domain }}/html/default.html'
+        owner: 'www-data'
+        group: 'www-data'
+        mode: '0440'
+
+    - name: Set up Apache virtualhost
+      template:
+        src: 'files/example.conf.j2'
+        dest: '/etc/apache2/sites-available/{{ var_domain }}.conf'
+
+    - name: Enable cgid
+      shell: /usr/sbin/a2enmod cgid
+
+    - name: Enable site
+      shell: /usr/sbin/a2ensite {{ var_domain }}.conf
+      notify: Restart Apache
+
+  handlers:
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
